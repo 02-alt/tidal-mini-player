@@ -8,3 +8,9 @@ dist/
 # Never commit signing material
 *.pem
 *.p12
+
+# Vendored Sparkle (auto-downloaded by build.sh)
+ThirdParty/Sparkle/
+
+# Sparkle release staging (archives; appcast.xml at repo root is tracked)
+releases/

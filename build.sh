@@ -18,17 +18,25 @@ CLANG_ARCH_FLAGS=(); for a in "${ARCHS[@]}"; do CLANG_ARCH_FLAGS+=(-arch "$a"); 
 ADAPTER_SRC="ThirdParty/mediaremote-adapter"
 RES="$APP/Contents/Resources"
 
-# Code signing. Prefer a stable local identity so the macOS Accessibility grant
-# (needed for background TIDAL control) survives rebuilds; each ad-hoc build
-# gets a new code hash, which makes macOS forget the permission. Falls back to
-# ad-hoc if the identity isn't installed (see docs/local-signing.md to create it).
-SIGN_ID="Tidal Mini Player Local Signing"
-if security find-identity -p codesigning 2>/dev/null | grep -q "$SIGN_ID"; then
-    CODESIGN=(codesign --force --timestamp=none --sign "$SIGN_ID")
-    echo "› Signing with local identity: $SIGN_ID"
+# Code signing. Preference order:
+#   1. Developer ID Application — notarizable, trusted on any Mac, and a stable
+#      identity so the Accessibility grant persists for everyone (+ Hardened
+#      Runtime & secure timestamp, both required by the notary service).
+#   2. Local self-signed identity — stable across rebuilds but not notarizable
+#      (see docs/local-signing.md).
+#   3. Ad-hoc — last resort; Accessibility grant won't survive rebuilds.
+DEV_ID=$(security find-identity -v -p codesigning 2>/dev/null \
+    | grep -m1 "Developer ID Application" | sed -E 's/^[^"]*"([^"]+)".*$/\1/')
+LOCAL_ID="Tidal Mini Player Local Signing"
+if [ -n "$DEV_ID" ]; then
+    CODESIGN=(codesign --force --options runtime --timestamp --sign "$DEV_ID")
+    echo "› Signing with Developer ID: $DEV_ID"
+elif security find-identity -p codesigning 2>/dev/null | grep -q "$LOCAL_ID"; then
+    CODESIGN=(codesign --force --timestamp=none --sign "$LOCAL_ID")
+    echo "› Signing with local identity: $LOCAL_ID (not notarizable)"
 else
     CODESIGN=(codesign --force --sign -)
-    echo "› Signing ad-hoc (no stable identity found — Accessibility grant won't persist across rebuilds)"
+    echo "› Signing ad-hoc (Accessibility grant won't persist across rebuilds)"
 fi
 
 echo "› Cleaning…"

@@ -1,0 +1,10 @@
+build/
+dist/
+.DS_Store
+
+# Conductor workspace scratch (also holds the local signing private key)
+.context/
+
+# Never commit signing material
+*.pem
+*.p12
